@@ -1,0 +1,513 @@
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Narrow:wght@600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+  :root{
+    --paper:#E7EAEA;
+    --card:#FFFFFF;
+    --ink:#15191B;
+    --muted:#69747A;
+    --rule:#D6DBDB;
+    --stamp:#0E4F57;
+    --s0:#8A9599;
+    --s1:#5E9E96;
+    --s2:#D9A227;
+    --s3:#CB6132;
+    --s4:#9C2B25;
+    --shadow:0 1px 0 rgba(21,25,27,.06), 0 6px 18px -12px rgba(21,25,27,.5);
+  }
+  *{box-sizing:border-box}
+  .wrap{
+    font-family:'Archivo',system-ui,-apple-system,sans-serif;
+    color:var(--ink);
+    background:var(--paper);
+    background-image:linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px);
+    background-size:34px 34px;
+    padding:22px 18px 40px;
+    min-height:100%;
+  }
+  .inner{max-width:1080px;margin:0 auto}
+
+  /* ---------- cabeçalho ---------- */
+  .top{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;justify-content:space-between;margin-bottom:18px}
+  .brand-eyebrow{
+    font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--stamp);margin-bottom:6px;
+  }
+  h1{
+    font-family:'Archivo Narrow','Archivo Narrow Fallback',sans-serif;font-weight:700;
+    font-size:clamp(30px,5vw,44px);line-height:.95;margin:0;letter-spacing:-.01em;text-transform:uppercase;
+  }
+  .sub{color:var(--muted);font-size:13px;margin-top:8px;max-width:46ch;line-height:1.45}
+
+  .drop{
+    border:1.5px dashed var(--stamp);background:rgba(255,255,255,.7);border-radius:3px;
+    padding:14px 16px;display:flex;gap:12px;align-items:center;cursor:pointer;min-width:270px;
+    transition:background .15s,border-color .15s;
+  }
+  .drop:hover,.drop.over{background:#fff;border-color:var(--ink)}
+  .drop:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .drop .ico{
+    width:34px;height:34px;flex:none;border-radius:2px;background:var(--stamp);color:#fff;
+    display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;
+  }
+  .drop b{display:block;font-size:13px}
+  .drop span{display:block;font-size:11.5px;color:var(--muted)}
+
+  /* ---------- filtros ---------- */
+  .bar{
+    display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 16px;
+    padding:10px;background:var(--card);border:1px solid var(--rule);border-radius:3px;box-shadow:var(--shadow);
+  }
+  .bar label{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+  select,input[type=search]{
+    font-family:'Archivo',sans-serif;font-size:13px;color:var(--ink);background:#F7F8F8;
+    border:1px solid var(--rule);border-radius:2px;padding:7px 9px;min-width:120px;
+  }
+  input[type=search]{flex:1;min-width:150px}
+  select:focus,input:focus{outline:2px solid var(--stamp);outline-offset:1px}
+  .btn{
+    font-family:'Archivo',sans-serif;font-size:12px;font-weight:600;border:1px solid var(--rule);
+    background:#F7F8F8;color:var(--ink);border-radius:2px;padding:7px 11px;cursor:pointer;
+  }
+  .btn:hover{background:#fff;border-color:var(--ink)}
+  .btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+  .btn.ghost:hover{color:var(--s4);background:#fff;border-color:var(--rule)}
+
+  /* ---------- kpis ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+  .kpi{background:var(--card);border:1px solid var(--rule);border-radius:3px;padding:12px 13px;box-shadow:var(--shadow)}
+  .kpi .k{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .kpi .v{font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:27px;line-height:1.15;margin-top:5px;letter-spacing:-.01em}
+  .kpi .v small{font-size:13px;font-weight:600;color:var(--muted);margin-left:2px}
+
+  /* ---------- lista de colaboradores ---------- */
+  .sec-title{
+    font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--muted);display:flex;justify-content:space-between;align-items:baseline;margin:22px 2px 8px;
+  }
+  .cards{display:flex;flex-direction:column;gap:8px}
+  .row{
+    position:relative;background:var(--card);border:1px solid var(--rule);border-radius:3px;box-shadow:var(--shadow);
+    padding:12px 14px 12px 26px;cursor:pointer;
+  }
+  /* borda perfurada do cartão ponto — a assinatura visual */
+  .row::before{
+    content:"";position:absolute;left:9px;top:9px;bottom:9px;width:5px;border-radius:3px;
+    background-image:radial-gradient(circle at 2.5px 2.5px, var(--rule) 2.2px, transparent 2.4px);
+    background-size:5px 10px;
+  }
+  .row[data-sev="1"]::before{background-image:radial-gradient(circle at 2.5px 2.5px,var(--s1) 2.2px,transparent 2.4px)}
+  .row[data-sev="2"]::before{background-image:radial-gradient(circle at 2.5px 2.5px,var(--s2) 2.2px,transparent 2.4px)}
+  .row[data-sev="3"]::before{background-image:radial-gradient(circle at 2.5px 2.5px,var(--s3) 2.2px,transparent 2.4px)}
+  .row[data-sev="4"]::before{background-image:radial-gradient(circle at 2.5px 2.5px,var(--s4) 2.2px,transparent 2.4px)}
+  .row:hover{border-color:var(--ink)}
+  .row:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
+  .rhead{display:flex;gap:12px;align-items:baseline;justify-content:space-between}
+  .who b{font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:17px;letter-spacing:.01em;text-transform:uppercase}
+  .who em{display:block;font-style:normal;font-size:11.5px;color:var(--muted);margin-top:2px}
+  .tot{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:17px;white-space:nowrap;text-align:right}
+  .tot em{display:block;font-style:normal;font-weight:400;font-size:10px;color:var(--muted);letter-spacing:.06em;margin-top:3px}
+
+  /* trilha de dias */
+  .track{display:flex;gap:2px;margin-top:10px;align-items:flex-end;height:22px}
+  .day{flex:1;min-width:3px;height:7px;border-radius:1px;background:#EDF0F0;position:relative}
+  .day[data-w="1"]{background:#F4F5F5}
+  .day.hit{border-radius:1px 1px 0 0}
+  .day.hit[data-sev="1"]{background:var(--s1)}
+  .day.hit[data-sev="2"]{background:var(--s2)}
+  .day.hit[data-sev="3"]{background:var(--s3)}
+  .day.hit[data-sev="4"]{background:var(--s4)}
+  .bar-total{height:8px;background:#EDF0F0;border-radius:1px;margin-top:12px;overflow:hidden}
+  .bar-total i{display:block;height:100%;background:var(--stamp)}
+
+  /* detalhe */
+  .detail{display:none;margin-top:12px;border-top:1px solid var(--rule);padding-top:10px}
+  .row.open .detail{display:block}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{
+    font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--muted);text-align:left;padding:4px 6px;border-bottom:1px solid var(--rule);font-weight:500;
+  }
+  td{padding:5px 6px;border-bottom:1px solid #F0F2F2}
+  td.mono{font-family:'JetBrains Mono',monospace}
+  td.at{font-family:'JetBrains Mono',monospace;font-weight:700;text-align:right}
+  tr:last-child td{border-bottom:0}
+  .tag{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
+
+  .empty{
+    background:var(--card);border:1px solid var(--rule);border-radius:3px;padding:34px 22px;text-align:center;box-shadow:var(--shadow);
+  }
+  .empty b{font-family:'Archivo Narrow',sans-serif;font-size:20px;text-transform:uppercase;display:block;margin-bottom:6px}
+  .empty p{color:var(--muted);font-size:13px;margin:0 auto;max-width:44ch;line-height:1.5}
+  .msg{
+    font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:9px 11px;border-radius:2px;margin-bottom:12px;
+    background:#fff;border:1px solid var(--rule);border-left:3px solid var(--stamp);
+  }
+  .msg.err{border-left-color:var(--s4);color:var(--s4)}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:var(--muted);margin-top:14px;align-items:center}
+  .legend span{display:flex;align-items:center;gap:5px}
+  .files{margin-top:26px;font-size:11.5px;color:var(--muted)}
+  .files table{margin-top:6px}
+  @media(max-width:640px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .drop{width:100%}
+    .track{height:16px}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+<div class="inner">
+
+  <div class="top">
+    <div>
+      <div class="brand-eyebrow" id="eyebrow">Cartão ponto · acumulado</div>
+      <h1>Controle de<br>atrasos</h1>
+      <p class="sub">Suba o cartão ponto em Excel. Os dados de cada arquivo ficam salvos aqui e vão se somando — no fim do mês você vê o acumulado de cada colaborador.</p>
+    </div>
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Enviar arquivo Excel do cartão ponto">
+      <div class="ico">↑</div>
+      <div>
+        <b>Enviar cartão ponto (.xlsx)</b>
+        <span>Clique ou arraste o arquivo aqui</span>
+      </div>
+    </div>
+    <input type="file" id="file" accept=".xlsx,.xls,.xlsm" multiple hidden>
+  </div>
+
+  <div id="msg"></div>
+
+  <div class="bar">
+    <label for="fMes">Mês</label>
+    <select id="fMes"></select>
+    <label for="fDep">Setor</label>
+    <select id="fDep"></select>
+    <input type="search" id="fNome" placeholder="Buscar colaborador">
+    <select id="fOrd">
+      <option value="tempo">Ordenar por tempo</option>
+      <option value="dias">Ordenar por nº de dias</option>
+      <option value="nome">Ordenar por nome</option>
+    </select>
+    <button class="btn" id="csv">Baixar CSV</button>
+    <button class="btn ghost" id="reset">Apagar tudo</button>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="k">Tempo total de atraso</div><div class="v" id="kTot">—</div></div>
+    <div class="kpi"><div class="k">Colaboradores com atraso</div><div class="v" id="kCol">—</div></div>
+    <div class="kpi"><div class="k">Ocorrências</div><div class="v" id="kOco">—</div></div>
+    <div class="kpi"><div class="k">Média por ocorrência</div><div class="v" id="kMed">—</div></div>
+  </div>
+
+  <div class="sec-title"><span id="secTitle">Ranking</span><span id="secInfo"></span></div>
+  <div class="cards" id="cards"></div>
+
+  <div class="legend">
+    <span><i class="tag" style="background:var(--s1)"></i>até 5 min</span>
+    <span><i class="tag" style="background:var(--s2)"></i>6 a 15 min</span>
+    <span><i class="tag" style="background:var(--s3)"></i>16 a 60 min</span>
+    <span><i class="tag" style="background:var(--s4)"></i>acima de 1h</span>
+    <span style="margin-left:auto">Clique no cartão para ver dia a dia</span>
+  </div>
+
+  <div class="files" id="files"></div>
+</div>
+</div>
+
+<script>
+const KEY = 'atrasos:base:v1';
+let DB = { colaboradores:{}, registros:{}, arquivos:[] };
+
+/* ---------------- utilitários ---------------- */
+const nz = s => (s===null||s===undefined) ? '' : String(s).trim();
+function minutos(v){
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number'&&isFinite(v)) return Math.round(v*1440);
+  const s=String(v).trim();
+  let m=s.match(/^(\d+)\s*days?,\s*(\d+):(\d+)/i);
+  if(m) return (+m[1])*1440+(+m[2])*60+(+m[3]);
+  m=s.match(/^(\d{1,3}):(\d{2})(?::(\d{2}))?$/);
+  if(m) return (+m[1])*60+(+m[2]);
+  return 0;
+}
+function hora(v){
+  if(v===null||v===undefined||v==='') return '—';
+  if(typeof v==='number'&&isFinite(v)){
+    const t=Math.round(v*1440), h=Math.floor(t/60)%24, mi=t%60;
+    return String(h).padStart(2,'0')+':'+String(mi).padStart(2,'0');
+  }
+  const s=String(v).trim();
+  const m=s.match(/^(\d{1,2}):(\d{2})/);
+  return m ? m[1].padStart(2,'0')+':'+m[2] : s;
+}
+function fmt(min){
+  min=Math.round(min);
+  if(min<60) return min+'min';
+  const h=Math.floor(min/60), m=min%60;
+  return m? h+'h '+String(m).padStart(2,'0') : h+'h';
+}
+function fmtV(min){
+  min=Math.round(min);
+  if(min<60) return min+'<small>min</small>';
+  const h=Math.floor(min/60), m=min%60;
+  return h+'<small>h</small>'+(m? ' '+String(m).padStart(2,'0')+'<small>min</small>':'');
+}
+function sev(min){ return min<=5?1 : min<=15?2 : min<=60?3 : 4; }
+function msg(t,err){
+  document.getElementById('msg').innerHTML = t ? '<div class="msg'+(err?' err':'')+'">'+t+'</div>' : '';
+}
+
+/* ---------------- leitura do cartão ponto ---------------- */
+function lerArquivo(wb, nomeArquivo){
+  const out={ regs:[], colabs:{}, periodo:'' };
+  wb.SheetNames.forEach(sn=>{
+    const M = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, raw:true, blankrows:true, defval:null});
+    if(!out.periodo){
+      for(let i=0;i<Math.min(6,M.length);i++){
+        const p = nz(M[i] && M[i][0]).match(/De:\s*([\d\/]+)\s*at[ée]\s*([\d\/]+)/i);
+        if(p){ out.periodo = p[1]+' a '+p[2]; break; }
+      }
+    }
+    const blocos=[];
+    for(let i=0;i<M.length;i++) if(nz(M[i]&&M[i][0])==='Nome') blocos.push(i);
+
+    blocos.forEach((r,bi)=>{
+      const linha = M[r]||[];
+      const nome = nz(linha[1]); if(!nome) return;
+      let funcao='', dep='', folha='';
+      for(let k=r;k<Math.min(r+8,M.length);k++){
+        const rot=nz(M[k]&&M[k][0]);
+        if(rot==='Função') funcao=nz(M[k][1]);
+        if(rot==='Departamento') dep=nz(M[k][1]);
+        if(rot==='Nº Folha') folha=nz(M[k][1]);
+      }
+      let hdr=-1;
+      for(let k=r;k<Math.min(r+30,M.length);k++) if(nz(M[k]&&M[k][0])==='Data'){ hdr=k; break; }
+      if(hdr<0) return;
+      let cAtr=-1,cEnt=-1,cFal=-1;
+      (M[hdr]||[]).forEach((h,c)=>{
+        const t=nz(h).toLowerCase().replace(/\./g,'').replace(/\s+/g,'');
+        if(t.startsWith('atras')) cAtr=c;
+        if(t==='ent1') cEnt=c;
+        if(t.startsWith('falta')) cFal=c;
+      });
+      if(cAtr<0) return;
+
+      out.colabs[nome] = { nome, funcao, dep, folha };
+      const fim = (bi+1<blocos.length) ? blocos[bi+1] : M.length;
+      for(let k=hdr+2;k<fim;k++){
+        const d = nz(M[k]&&M[k][0]).match(/^(\d{2})\/(\d{2})\/(\d{2})\s*-\s*(\S+)/);
+        if(!d) continue;
+        const iso = '20'+d[3]+'-'+d[2]+'-'+d[1];
+        const at = minutos(M[k][cAtr]);
+        if(at<=0) continue;
+        out.regs.push({
+          id: nome+'|'+iso, nome, dep, funcao, data: iso, dia: d[4],
+          ent1: hora(cEnt>=0? M[k][cEnt] : null),
+          min: at,
+          falta: cFal>=0 ? minutos(M[k][cFal]) : 0,
+          arq: nomeArquivo
+        });
+      }
+    });
+  });
+  return out;
+}
+
+/* ---------------- persistência ---------------- */
+async function carregar(){
+  try{
+    const r = await window.storage.get(KEY);
+    if(r && r.value) DB = JSON.parse(r.value);
+  }catch(e){ /* primeira vez: sem base ainda */ }
+  DB.colaboradores = DB.colaboradores||{}; DB.registros = DB.registros||{}; DB.arquivos = DB.arquivos||[];
+}
+async function salvar(){
+  try{ await window.storage.set(KEY, JSON.stringify(DB)); }
+  catch(e){ msg('Não deu para salvar os dados agora. Tente subir o arquivo de novo.', true); }
+}
+
+/* ---------------- upload ---------------- */
+async function processar(files){
+  let novos=0, atualizados=0, lidos=0;
+  for(const f of files){
+    let dados;
+    try{
+      const buf = await f.arrayBuffer();
+      dados = lerArquivo(XLSX.read(buf,{type:'array'}), f.name);
+    }catch(e){ msg('Não consegui abrir <b>'+f.name+'</b>. Envie o arquivo .xlsx original do cartão ponto.', true); continue; }
+
+    if(!Object.keys(dados.colabs).length){
+      msg('<b>'+f.name+'</b> não parece um cartão ponto. Preciso do relatório com os campos <b>Nome</b>, <b>Data</b> e a coluna <b>Atras.</b>', true);
+      continue;
+    }
+    Object.assign(DB.colaboradores, dados.colabs);
+    dados.regs.forEach(r=>{ if(DB.registros[r.id]) atualizados++; else novos++; DB.registros[r.id]=r; });
+    DB.arquivos.unshift({ nome:f.name, periodo:dados.periodo, regs:dados.regs.length, colabs:Object.keys(dados.colabs).length, quando:new Date().toISOString() });
+    lidos++;
+  }
+  if(!lidos) return;
+  await salvar();
+  msg('Arquivo lido: <b>'+novos+'</b> ocorrência(s) nova(s), <b>'+atualizados+'</b> atualizada(s). Nada do que já estava aqui foi perdido.');
+  montarFiltros(); render();
+}
+
+/* ---------------- filtros ---------------- */
+function regs(){ return Object.values(DB.registros); }
+function meses(){
+  const s=new Set(regs().map(r=>r.data.slice(0,7)));
+  return [...s].sort().reverse();
+}
+function nomeMes(ym){
+  const M=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  return M[+ym.slice(5,7)-1]+' de '+ym.slice(0,4);
+}
+function montarFiltros(){
+  const fm=document.getElementById('fMes'), atualM=fm.value;
+  const ms=meses();
+  fm.innerHTML = '<option value="">Todos os meses</option>' + ms.map(m=>'<option value="'+m+'">'+nomeMes(m)+'</option>').join('');
+  fm.value = ms.includes(atualM)? atualM : (ms[0]||'');
+
+  const fd=document.getElementById('fDep'), atualD=fd.value;
+  const ds=[...new Set(Object.values(DB.colaboradores).map(c=>c.dep).filter(Boolean))].sort();
+  fd.innerHTML = '<option value="">Todos os setores</option>' + ds.map(d=>'<option value="'+d+'">'+d+'</option>').join('');
+  fd.value = ds.includes(atualD)? atualD : '';
+}
+
+/* ---------------- render ---------------- */
+function render(){
+  const mes=document.getElementById('fMes').value;
+  const dep=document.getElementById('fDep').value;
+  const q=document.getElementById('fNome').value.trim().toLowerCase();
+  const ord=document.getElementById('fOrd').value;
+  const cards=document.getElementById('cards');
+
+  if(!Object.keys(DB.colaboradores).length){
+    cards.innerHTML='<div class="empty"><b>Nenhum cartão ponto ainda</b><p>Envie o arquivo Excel do cartão ponto para começar. A cada novo envio o painel soma os dados aos que já estão aqui, sem apagar os anteriores.</p></div>';
+    ['kTot','kCol','kOco','kMed'].forEach(i=>document.getElementById(i).textContent='—');
+    document.getElementById('secInfo').textContent='';
+    document.getElementById('files').innerHTML='';
+    return;
+  }
+
+  const filtrados = regs().filter(r =>
+    (!mes || r.data.slice(0,7)===mes) &&
+    (!dep || r.dep===dep) &&
+    (!q || r.nome.toLowerCase().includes(q))
+  );
+
+  const porColab = {};
+  Object.values(DB.colaboradores).forEach(c=>{
+    if(dep && c.dep!==dep) return;
+    if(q && !c.nome.toLowerCase().includes(q)) return;
+    porColab[c.nome] = { ...c, min:0, dias:[], pior:0 };
+  });
+  filtrados.forEach(r=>{
+    const c = porColab[r.nome]; if(!c) return;
+    c.min += r.min; c.dias.push(r); c.pior = Math.max(c.pior, r.min);
+  });
+
+  const lista = Object.values(porColab).sort((a,b)=>
+    ord==='nome' ? a.nome.localeCompare(b.nome,'pt-BR') :
+    ord==='dias' ? (b.dias.length-a.dias.length)||(b.min-a.min) :
+    (b.min-a.min)||a.nome.localeCompare(b.nome,'pt-BR')
+  );
+
+  const totMin = filtrados.reduce((s,r)=>s+r.min,0);
+  const comAtraso = lista.filter(c=>c.min>0).length;
+  document.getElementById('kTot').innerHTML = totMin? fmtV(totMin) : '0';
+  document.getElementById('kCol').innerHTML = comAtraso + '<small>de '+lista.length+'</small>';
+  document.getElementById('kOco').innerHTML = filtrados.length + '<small>dias</small>';
+  document.getElementById('kMed').innerHTML = filtrados.length? fmtV(totMin/filtrados.length) : '0';
+
+  document.getElementById('secTitle').textContent = mes ? 'Ranking · '+nomeMes(mes) : 'Ranking · acumulado geral';
+  document.getElementById('secInfo').textContent = lista.length+' colaboradores';
+
+  const maxMin = Math.max(1, ...lista.map(c=>c.min));
+  const diasNoMes = mes ? new Date(+mes.slice(0,4), +mes.slice(5,7), 0).getDate() : 0;
+
+  cards.innerHTML = lista.map(c=>{
+    let trilha='';
+    if(mes){
+      const porDia={}; c.dias.forEach(r=>porDia[+r.data.slice(8,10)]=r);
+      let cells='';
+      for(let d=1; d<=diasNoMes; d++){
+        const r=porDia[d];
+        const wd = new Date(+mes.slice(0,4), +mes.slice(5,7)-1, d).getDay();
+        const fds = (wd===0||wd===6) ? '1':'0';
+        cells += r
+          ? '<i class="day hit" data-sev="'+sev(r.min)+'" style="height:'+Math.max(7, Math.min(22, 7+r.min/6))+'px" title="'+String(d).padStart(2,'0')+'/'+mes.slice(5,7)+' · entrada '+r.ent1+' · '+fmt(r.min)+' de atraso"></i>'
+          : '<i class="day" data-w="'+fds+'" title="'+String(d).padStart(2,'0')+'/'+mes.slice(5,7)+' · sem atraso"></i>';
+      }
+      trilha = '<div class="track">'+cells+'</div>';
+    }else{
+      trilha = '<div class="bar-total"><i style="width:'+(c.min/maxMin*100)+'%"></i></div>';
+    }
+
+    const linhas = c.dias.sort((a,b)=>a.data.localeCompare(b.data)).map(r=>
+      '<tr><td class="mono">'+r.data.slice(8,10)+'/'+r.data.slice(5,7)+'/'+r.data.slice(2,4)+'</td>'+
+      '<td>'+r.dia+'</td><td class="mono">'+r.ent1+'</td>'+
+      '<td class="at"><i class="tag" style="background:var(--s'+sev(r.min)+')"></i>'+fmt(r.min)+'</td></tr>'
+    ).join('');
+
+    return '<div class="row" tabindex="0" data-sev="'+(c.min? sev(c.pior):0)+'">'+
+      '<div class="rhead">'+
+        '<div class="who"><b>'+c.nome+'</b><em>'+(c.funcao||'—')+(c.folha? ' · folha '+String(c.folha).replace(/^0+/,''):'')+'</em></div>'+
+        '<div class="tot">'+(c.min? fmt(c.min):'—')+'<em>'+(c.dias.length? c.dias.length+' dia(s) · pior '+fmt(c.pior) : 'sem atrasos')+'</em></div>'+
+      '</div>'+ trilha +
+      '<div class="detail">'+ (c.dias.length
+        ? '<table><thead><tr><th>Data</th><th>Dia</th><th>Entrada</th><th style="text-align:right">Atraso</th></tr></thead><tbody>'+linhas+'</tbody></table>'
+        : '<p style="font-size:12.5px;color:var(--muted);margin:4px 0">Nenhum atraso registrado no período selecionado.</p>')+
+      '</div></div>';
+  }).join('');
+
+  cards.querySelectorAll('.row').forEach(el=>{
+    const abrir = ()=> el.classList.toggle('open');
+    el.addEventListener('click', abrir);
+    el.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); abrir(); }});
+  });
+
+  document.getElementById('files').innerHTML = DB.arquivos.length
+    ? '<div class="sec-title"><span>Arquivos enviados</span></div><table><thead><tr><th>Arquivo</th><th>Período do cartão</th><th>Colab.</th><th>Ocorrências</th><th>Enviado em</th></tr></thead><tbody>'+
+      DB.arquivos.slice(0,12).map(a=>'<tr><td>'+a.nome+'</td><td class="mono">'+(a.periodo||'—')+'</td><td class="mono">'+a.colabs+'</td><td class="mono">'+a.regs+'</td><td class="mono">'+new Date(a.quando).toLocaleString('pt-BR')+'</td></tr>').join('')+
+      '</tbody></table>' : '';
+}
+
+/* ---------------- ações ---------------- */
+document.getElementById('drop').addEventListener('click', ()=>document.getElementById('file').click());
+document.getElementById('drop').addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault(); document.getElementById('file').click();} });
+['dragenter','dragover'].forEach(ev=>document.getElementById('drop').addEventListener(ev, e=>{e.preventDefault(); e.currentTarget.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>document.getElementById('drop').addEventListener(ev, e=>{e.preventDefault(); e.currentTarget.classList.remove('over');}));
+document.getElementById('drop').addEventListener('drop', e=>{ if(e.dataTransfer.files.length) processar([...e.dataTransfer.files]); });
+document.getElementById('file').addEventListener('change', e=>{ processar([...e.target.files]); e.target.value=''; });
+['fMes','fDep','fOrd'].forEach(i=>document.getElementById(i).addEventListener('change', render));
+document.getElementById('fNome').addEventListener('input', render);
+
+document.getElementById('csv').addEventListener('click', ()=>{
+  const mes=document.getElementById('fMes').value, dep=document.getElementById('fDep').value;
+  const rs = regs().filter(r=>(!mes||r.data.slice(0,7)===mes)&&(!dep||r.dep===dep))
+                   .sort((a,b)=> a.nome.localeCompare(b.nome,'pt-BR')||a.data.localeCompare(b.data));
+  if(!rs.length){ msg('Não há registros no filtro atual para exportar.', true); return; }
+  const linhas = [['Colaborador','Função','Setor','Data','Dia','Entrada','Atraso (min)','Atraso (h:mm)']]
+    .concat(rs.map(r=>[r.nome,r.funcao,r.dep,r.data.slice(8,10)+'/'+r.data.slice(5,7)+'/'+r.data.slice(0,4),r.dia,r.ent1,r.min,
+      Math.floor(r.min/60)+':'+String(r.min%60).padStart(2,'0')]));
+  const csv='\ufeff'+linhas.map(l=>l.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download='atrasos'+(mes?'_'+mes:'')+'.csv'; a.click(); URL.revokeObjectURL(a.href);
+});
+
+document.getElementById('reset').addEventListener('click', async ()=>{
+  if(!confirm('Isso apaga todos os atrasos já enviados. Continuar?')) return;
+  DB={colaboradores:{},registros:{},arquivos:[]};
+  try{ await window.storage.delete(KEY); }catch(e){}
+  msg('Base zerada. Envie um cartão ponto para recomeçar.');
+  montarFiltros(); render();
+});
+
+(async ()=>{ await carregar(); montarFiltros(); render(); })();
+</script>
