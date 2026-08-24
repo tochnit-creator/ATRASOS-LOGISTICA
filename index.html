@@ -8,6 +8,7 @@
   :root{
     --paper:#E7EAEA; --card:#FFFFFF; --ink:#15191B; --muted:#69747A; --rule:#D6DBDB;
     --stamp:#0E4F57; --s1:#5E9E96; --s2:#D9A227; --s3:#CB6132; --s4:#9C2B25;
+    --he:#7A4FA3; --he-bg:#F3EEFA;
     --shadow:0 1px 0 rgba(21,25,27,.06), 0 6px 18px -12px rgba(21,25,27,.5);
   }
   *{box-sizing:border-box}
@@ -38,14 +39,26 @@
   .btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
   .btn.ghost:hover{color:var(--s4);background:#fff;border-color:var(--rule)}
 
-  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
   .kpi{background:var(--card);border:1px solid var(--rule);border-radius:3px;padding:12px 13px;box-shadow:var(--shadow)}
   .kpi.lead{border-left:3px solid var(--stamp)}
+  .kpi.warn{border-left:3px solid var(--he)}
   .kpi .k{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
   .kpi .v{font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:27px;line-height:1.15;margin-top:5px;letter-spacing:-.01em}
+  .kpi.warn .v{color:var(--he)}
   .kpi .v small{font-size:13px;font-weight:600;color:var(--muted);margin-left:2px}
   .kpi .p{font-size:11px;color:var(--muted);margin-top:3px}
   .note{font-size:11.5px;color:var(--muted);margin:8px 2px 0;line-height:1.5}
+
+  .tabs{display:flex;gap:6px;margin:22px 2px 8px}
+  .tab{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:var(--card);border:1px solid var(--rule);border-radius:3px;padding:7px 12px;cursor:pointer;display:flex;align-items:center;gap:7px}
+  .tab:hover{border-color:var(--ink);color:var(--ink)}
+  .tab.active{background:var(--stamp);border-color:var(--stamp);color:#fff}
+  .tab .cnt{font-family:'Archivo',sans-serif;font-weight:700;font-size:10px;background:var(--he);color:#fff;border-radius:8px;padding:1px 6px;line-height:1.4}
+  .tab.active .cnt{background:#fff;color:var(--he)}
+  .tab .cnt:empty{display:none}
+
+  .hebadge{display:inline-flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.04em;padding:2px 7px;border-radius:9px;background:var(--he-bg);color:var(--he);border:1px solid var(--he);white-space:nowrap;margin-top:4px}
 
   .sec-title{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:22px 2px 8px}
   .cards{display:flex;flex-direction:column;gap:8px}
@@ -55,6 +68,7 @@
   .row[data-sev="2"]::before{background-image:radial-gradient(circle at 2.5px 2.5px,var(--s2) 2.2px,transparent 2.4px)}
   .row[data-sev="3"]::before{background-image:radial-gradient(circle at 2.5px 2.5px,var(--s3) 2.2px,transparent 2.4px)}
   .row[data-sev="4"]::before{background-image:radial-gradient(circle at 2.5px 2.5px,var(--s4) 2.2px,transparent 2.4px)}
+  .row.he-alert::before{background-image:radial-gradient(circle at 2.5px 2.5px,var(--he) 2.2px,transparent 2.4px)}
   .row:hover{border-color:var(--ink)}
   .row:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
   .rhead{display:flex;gap:12px;align-items:baseline;justify-content:space-between}
@@ -130,6 +144,7 @@
       <option value="tempo">Ordenar por total do cartão</option>
       <option value="chegada">Ordenar por atraso na chegada</option>
       <option value="dias">Ordenar por nº de dias</option>
+      <option value="he">Ordenar por hora extra</option>
       <option value="nome">Ordenar por nome</option>
     </select>
     <button class="btn" id="csv">Baixar CSV</button>
@@ -141,8 +156,14 @@
     <div class="kpi"><div class="k">Atraso na chegada</div><div class="v" id="kChe">—</div><div class="p" id="kCheP">entrada depois do previsto</div></div>
     <div class="kpi"><div class="k">Saída antecipada</div><div class="v" id="kSai">—</div><div class="p">saiu antes do fim da escala</div></div>
     <div class="kpi"><div class="k">Outros</div><div class="v" id="kOut">—</div><div class="p">intervalo, atestado, saída particular</div></div>
+    <div class="kpi warn"><div class="k">Alertas hora extra</div><div class="v" id="kHe">—</div><div class="p" id="kHeP">acima de 3h em algum dia</div></div>
   </div>
   <div class="note" id="nota"></div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="rank" id="tabRank">Ranking</button>
+    <button class="tab" data-tab="alert" id="tabAlert">Alertas de hora extra <span class="cnt" id="tabAlertCnt"></span></button>
+  </div>
 
   <div class="sec-title"><span id="secTitle">Ranking</span><span id="secInfo"></span></div>
   <div class="cards" id="cards"></div>
@@ -152,6 +173,7 @@
     <span><i class="tag" style="background:var(--s2)"></i>6 a 15 min</span>
     <span><i class="tag" style="background:var(--s3)"></i>16 a 60 min</span>
     <span><i class="tag" style="background:var(--s4)"></i>acima de 1h</span>
+    <span><i class="tag" style="background:var(--he)"></i>hora extra acima de 3h/dia</span>
     <span style="margin-left:auto">Clique no cartão para ver o dia a dia</span>
   </div>
 
@@ -162,6 +184,8 @@
 const KEY='atrasos:base:v2', KEY_V1='atrasos:base:v1';
 let DB={colaboradores:{},registros:{},arquivos:[]};
 
+const LIMITE_HE=180; // minutos de hora extra no dia a partir dos quais vira alerta (3h)
+let ABA='rank'; // aba ativa: 'rank' | 'alert'
 const nz=s=>(s===null||s===undefined)?'':String(s).trim();
 function minutos(v){
   if(v===null||v===undefined||v==='') return null;
@@ -234,7 +258,7 @@ function lerArquivo(wb, nomeArquivo){
       for(let k=hdr+2;k<fim;k++){
         const d=nz(M[k]&&M[k][0]).match(/^(\d{2})\/(\d{2})\/(\d{2})\s*-\s*(\S+)/);
         if(!d) continue;
-        const of=minutos(M[k][cAtr])||0; if(of<=0) continue;
+        const of=minutos(M[k][cAtr])||0;
         const iso='20'+d[3]+'-'+d[2]+'-'+d[1];
         const dow=DOW[new Date(+('20'+d[3]),+d[2]-1,+d[1]).getDay()];
         const E=escala[dow]||[null,null,null,null,null,null];
@@ -242,6 +266,10 @@ function lerArquivo(wb, nomeArquivo){
         let jSai=-1; for(const j of [5,3,1]) if(E[j]!==null){ jSai=j; break; }
         const cellEnt = marc[0]>=0 ? M[k][marc[0]] : null;
         const cellSai = (jSai>=0 && marc[jSai]>=0) ? M[k][marc[jSai]] : null;
+        const entMinChk=minutos(cellEnt), saiMinChk=minutos(cellSai);
+        // mantém o dia se houve atraso OU se houve hora extra (entrou antes / saiu depois do previsto)
+        const heChk=horaExtra(E[0],entMinChk,jSai>=0?E[jSai]:null,saiMinChk,0);
+        if(of<=0 && heChk<=0) continue;
         // observação: primeira marcação que não é horário (SAIDA P, ATEST H, AFASTAD...)
         let obs='';
         for(const c of marc){ if(c<0) continue; const v=M[k][c];
@@ -272,6 +300,21 @@ function partes(r, tol){
   const outros=Math.max(0,r.of-che-sai), abono=Math.max(0,che+sai-r.of);
   return {che,sai,outros,abono};
 }
+
+/* -------- hora extra do dia -------- */
+// Extra = chegou antes do horário previsto de entrada e/ou saiu depois do previsto de saída.
+function horaExtra(prevEnt,entMin,prevSai,saiMin,tol){
+  let he=0;
+  if(entMin!==null&&entMin!==undefined&&prevEnt!==null&&prevEnt!==undefined){
+    const e=Math.max(0,prevEnt-entMin); he+=e<=tol?0:e;
+  }
+  if(saiMin!==null&&saiMin!==undefined&&prevSai!==null&&prevSai!==undefined){
+    const s=Math.max(0,saiMin-prevSai); he+=s<=tol?0:s;
+  }
+  return he;
+}
+function heDia(r,tol){ return horaExtra(r.prevEnt,r.entMin,r.prevSai,r.saiMin,tol); }
+function sevHE(min){ return min<=60?1:min<=120?2:min<=LIMITE_HE?3:4; }
 
 /* -------- persistência -------- */
 async function carregar(){
@@ -329,7 +372,8 @@ function render(){
 
   if(!Object.keys(DB.colaboradores).length){
     cards.innerHTML='<div class="empty"><b>Nenhum cartão ponto ainda</b><p>Envie o arquivo Excel do cartão ponto para começar. A cada novo envio o painel soma os dados aos que já estão aqui, sem apagar os anteriores.</p></div>';
-    ['kTot','kChe','kSai','kOut'].forEach(i=>document.getElementById(i).textContent='—');
+    ['kTot','kChe','kSai','kOut','kHe'].forEach(i=>document.getElementById(i).textContent='—');
+    document.getElementById('tabAlertCnt').textContent='';
     document.getElementById('secInfo').textContent=''; document.getElementById('files').innerHTML='';
     document.getElementById('nota').textContent=''; return;
   }
@@ -338,35 +382,79 @@ function render(){
   const porColab={};
   Object.values(DB.colaboradores).forEach(c=>{
     if(dep&&c.dep!==dep) return; if(q&&!c.nome.toLowerCase().includes(q)) return;
-    porColab[c.nome]={...c,of:0,che:0,sai:0,outros:0,abono:0,pior:0,dias:[]};
+    porColab[c.nome]={...c,of:0,che:0,sai:0,outros:0,abono:0,pior:0,dias:[],heTotal:0,hePior:0,heDias:[]};
   });
   filtrados.forEach(r=>{
     const c=porColab[r.nome]; if(!c) return;
     const p=partes(r,tol); r._p=p;
+    const he=heDia(r,tol); r._he=he;
     c.of+=r.of; c.che+=p.che; c.sai+=p.sai; c.outros+=p.outros; c.abono+=p.abono;
     c.pior=Math.max(c.pior,r.of); c.dias.push(r);
+    if(he>0){ c.heTotal+=he; c.hePior=Math.max(c.hePior,he); }
+    if(he>LIMITE_HE) c.heDias.push(r);
   });
   const lista=Object.values(porColab).sort((a,b)=>
     ord==='nome'?a.nome.localeCompare(b.nome,'pt-BR'):
     ord==='dias'?(b.dias.length-a.dias.length)||(b.of-a.of):
     ord==='chegada'?(b.che-a.che)||(b.of-a.of):
+    ord==='he'?(b.heTotal-a.heTotal)||(b.of-a.of):
     (b.of-a.of)||a.nome.localeCompare(b.nome,'pt-BR'));
 
   const T=lista.reduce((s,c)=>({of:s.of+c.of,che:s.che+c.che,sai:s.sai+c.sai,outros:s.outros+c.outros,abono:s.abono+c.abono}),{of:0,che:0,sai:0,outros:0,abono:0});
+  const alertas=lista.filter(c=>c.heDias.length>0);
+  const totAlertDias=alertas.reduce((s,c)=>s+c.heDias.length,0);
   const pct=v=>T.of? ' · '+Math.round(v/T.of*100)+'% do total':'';
   document.getElementById('kTot').innerHTML=fmtV(T.of);
   document.getElementById('kChe').innerHTML=fmtV(T.che);
   document.getElementById('kCheP').textContent='entrada depois do previsto'+pct(T.che);
   document.getElementById('kSai').innerHTML=fmtV(T.sai);
   document.getElementById('kOut').innerHTML=fmtV(T.outros);
+  document.getElementById('kHe').textContent=alertas.length;
+  document.getElementById('kHeP').textContent=alertas.length? totAlertDias+' dia(s) acima de '+fmt(LIMITE_HE)+' de hora extra' : 'acima de '+fmt(LIMITE_HE)+' em algum dia';
+  document.getElementById('tabAlertCnt').textContent=alertas.length||'';
   document.getElementById('nota').innerHTML=
     'O <b>total do cartão</b> é a coluna Atras. do arquivo — ela junta chegada tardia, saída antecipada e o resto. As três colunas ao lado são o mesmo total repartido, usando a escala de cada dia e a tolerância selecionada.'
-    + (T.abono? ' Neste filtro há <b>'+fmt(T.abono)+'</b> de abono/atestado que o sistema já descontou do total oficial.':'');
-  document.getElementById('secTitle').textContent=mes?'Ranking · '+nomeMes(mes):'Ranking · acumulado geral';
-  document.getElementById('secInfo').textContent=lista.length+' colaboradores · '+lista.filter(c=>c.of>0).length+' com atraso · '+filtrados.length+' dias';
+    + (T.abono? ' Neste filtro há <b>'+fmt(T.abono)+'</b> de abono/atestado que o sistema já descontou do total oficial.':'')
+    + ' <b>Hora extra</b> é quando o colaborador bate entrada antes ou saída depois do previsto na escala; acima de <b>'+fmt(LIMITE_HE)+' num mesmo dia</b> vira alerta.';
+
+  if(ABA==='alert'){
+    document.getElementById('secTitle').textContent=mes?'Alertas de hora extra · '+nomeMes(mes):'Alertas de hora extra · acumulado geral';
+    document.getElementById('secInfo').textContent=alertas.length+' colaborador(es) · '+totAlertDias+' dia(s) acima de '+fmt(LIMITE_HE);
+  } else {
+    document.getElementById('secTitle').textContent=mes?'Ranking · '+nomeMes(mes):'Ranking · acumulado geral';
+    document.getElementById('secInfo').textContent=lista.length+' colaboradores · '+lista.filter(c=>c.of>0).length+' com atraso · '+filtrados.length+' dias';
+  }
 
   const maxOf=Math.max(1,...lista.map(c=>c.of));
   const diasNoMes=mes?new Date(+mes.slice(0,4),+mes.slice(5,7),0).getDate():0;
+
+  if(ABA==='alert'){
+    cards.innerHTML = alertas.length ? alertas.sort((a,b)=>(b.heDias.length-a.heDias.length)||(b.heTotal-a.heTotal)).map(c=>{
+      const linhasHE=c.dias.filter(r=>r._he>0).sort((a,b)=>a.data.localeCompare(b.data)).map(r=>{
+        const esc=(r.prevEnt!==null&&r.prevEnt!==undefined)?hhmm(r.prevEnt)+'–'+hhmm(r.prevSai):'—';
+        const over=r._he>LIMITE_HE;
+        return '<tr'+(over?' style="background:var(--he-bg)"':'')+'><td class="mono">'+r.data.slice(8,10)+'/'+r.data.slice(5,7)+' <span class="prev">'+r.dia+'</span></td>'+
+          '<td class="mono prev">'+esc+'</td>'+
+          '<td class="mono">'+r.entTxt+'</td><td class="mono">'+r.saiTxt+'</td>'+
+          '<td class="n mono" style="color:var(--he);font-weight:'+(over?'700':'400')+'">'+fmt(r._he)+(over?' ⚠':'')+'</td></tr>';
+      }).join('');
+      const track='<div class="track">'+c.dias.filter(r=>r._he>0).map(r=>
+        '<i class="day hit" data-sev="'+sevHE(r._he)+'" style="height:'+Math.max(7,Math.min(22,7+r._he/6))+'px" title="'+r.data.slice(8,10)+'/'+r.data.slice(5,7)+' · hora extra '+fmt(r._he)+'"></i>').join('')+'</div>';
+      return '<div class="row he-alert" tabindex="0" data-sev="0">'+
+        '<div class="rhead"><div class="who"><b>'+c.nome+'</b><em>'+(c.funcao||'—')+(c.folha?' · folha '+String(c.folha).replace(/^0+/,''):'')+'</em>'+
+        '<span class="hebadge">⚠ '+c.heDias.length+' dia(s) acima de '+fmt(LIMITE_HE)+'</span></div>'+
+        '<div class="tot" style="color:var(--he)">'+fmt(c.heTotal)+'<em>'+c.dias.filter(r=>r._he>0).length+' dia(s) com hora extra</em></div></div>'+
+        track+
+        '<div class="detail" style="display:block">'+
+        '<div class="scroll"><table><thead><tr><th>Data</th><th>Escala prevista</th><th>Entrada</th><th>Saída</th><th class="n">Hora extra</th></tr></thead><tbody>'+linhasHE+'</tbody></table></div>'+
+        '<p class="foot">Marcado em destaque: dias em que a hora extra ultrapassou '+fmt(LIMITE_HE)+' (limite diário configurado). </p>'+
+        '</div></div>';
+    }).join('') : '<div class="empty"><b>Nenhum alerta neste período</b><p>Ninguém ultrapassou '+fmt(LIMITE_HE)+' de hora extra em um mesmo dia, considerando a tolerância selecionada.</p></div>';
+
+    cards.querySelectorAll('.row').forEach(el=>el.classList.add('open'));
+    document.getElementById('files').innerHTML='';
+    return;
+  }
 
   cards.innerHTML=lista.map(c=>{
     let trilha='';
@@ -388,25 +476,30 @@ function render(){
 
     const linhas=c.dias.sort((a,b)=>a.data.localeCompare(b.data)).map(r=>{
       const p=r._p||partes(r,tol);
+      const he=r._he||0, overHE=he>LIMITE_HE;
       const esc=(r.prevEnt!==null&&r.prevEnt!==undefined)?hhmm(r.prevEnt)+'–'+hhmm(r.prevSai):'—';
       const obs=[]; if(r.obs) obs.push('<span class="chip">'+r.obs+'</span>');
       if(p.abono) obs.push('<span class="chip">abonado −'+fmt(p.abono)+'</span>');
+      if(overHE) obs.push('<span class="chip" style="color:var(--he);border-color:var(--he);background:var(--he-bg)">hora extra ⚠</span>');
       const cel=(v)=> v? '<td class="n mono" style="color:var(--s'+sev(v)+')">'+fmt(v)+'</td>' : '<td class="n mono zero">—</td>';
+      const celHE=he? '<td class="n mono" style="color:var(--he);font-weight:'+(overHE?'700':'400')+'">'+fmt(he)+'</td>' : '<td class="n mono zero">—</td>';
       return '<tr><td class="mono">'+r.data.slice(8,10)+'/'+r.data.slice(5,7)+' <span class="prev">'+r.dia+'</span></td>'+
         '<td class="mono prev">'+esc+'</td>'+
         '<td class="mono">'+r.entTxt+'</td><td class="mono">'+r.saiTxt+'</td>'+
-        cel(p.che)+cel(p.sai)+cel(p.outros)+
+        cel(p.che)+cel(p.sai)+cel(p.outros)+celHE+
         '<td class="tot-c">'+fmt(r.of)+'</td><td>'+obs.join(' ')+'</td></tr>';
     }).join('');
 
-    return '<div class="row" tabindex="0" data-sev="'+(c.of?sev(c.pior):0)+'">'+
-      '<div class="rhead"><div class="who"><b>'+c.nome+'</b><em>'+(c.funcao||'—')+(c.folha?' · folha '+String(c.folha).replace(/^0+/,''):'')+'</em></div>'+
+    const heBadge=c.heDias.length? '<span class="hebadge">⚠ '+c.heDias.length+' dia(s) hora extra acima de '+fmt(LIMITE_HE)+'</span>' : '';
+
+    return '<div class="row'+(c.heDias.length?' he-alert':'')+'" tabindex="0" data-sev="'+(c.of?sev(c.pior):0)+'">'+
+      '<div class="rhead"><div class="who"><b>'+c.nome+'</b><em>'+(c.funcao||'—')+(c.folha?' · folha '+String(c.folha).replace(/^0+/,''):'')+'</em>'+heBadge+'</div>'+
       '<div class="tot">'+(c.of?fmt(c.of):'—')+'<em>'+(c.dias.length? c.dias.length+' dia(s) · '+(resumo.join(' · ')||'—') : 'sem atrasos')+'</em></div></div>'+
       trilha+
       '<div class="detail">'+(c.dias.length
         ? '<div class="scroll"><table><thead><tr><th>Data</th><th>Escala prevista</th><th>Entrada</th><th>Saída</th>'+
-          '<th class="n">Chegada</th><th class="n">Saída antes</th><th class="n">Outros</th><th class="n">Total cartão</th><th>Obs.</th></tr></thead><tbody>'+linhas+'</tbody></table></div>'+
-          '<p class="foot">Escala prevista = entrada e última saída do dia conforme o cartão. Marcações: <b>*</b> lançada manualmente · <b>¨</b> abono parcial · <b>^</b> pré-assinalada.</p>'
+          '<th class="n">Chegada</th><th class="n">Saída antes</th><th class="n">Outros</th><th class="n">Hora extra</th><th class="n">Total cartão</th><th>Obs.</th></tr></thead><tbody>'+linhas+'</tbody></table></div>'+
+          '<p class="foot">Escala prevista = entrada e última saída do dia conforme o cartão. Marcações: <b>*</b> lançada manualmente · <b>¨</b> abono parcial · <b>^</b> pré-assinalada. Hora extra acima de '+fmt(LIMITE_HE)+' fica destacada.</p>'
         : '<p style="font-size:12.5px;color:var(--muted);margin:4px 0">Nenhum atraso registrado no período selecionado.</p>')+
       '</div></div>';
   }).join('');
@@ -433,16 +526,23 @@ document.getElementById('file').addEventListener('change',e=>{ processar([...e.t
 ['fMes','fDep','fOrd','fTol'].forEach(i=>document.getElementById(i).addEventListener('change',render));
 document.getElementById('fNome').addEventListener('input',render);
 
+document.getElementById('tabs').addEventListener('click',e=>{
+  const b=e.target.closest('.tab'); if(!b) return;
+  ABA=b.dataset.tab;
+  document.querySelectorAll('#tabs .tab').forEach(t=>t.classList.toggle('active',t===b));
+  render();
+});
+
 document.getElementById('csv').addEventListener('click',()=>{
   const mes=document.getElementById('fMes').value, dep=document.getElementById('fDep').value, tol=+document.getElementById('fTol').value;
   const rs=regs().filter(r=>(!mes||r.data.slice(0,7)===mes)&&(!dep||r.dep===dep))
     .sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')||a.data.localeCompare(b.data));
   if(!rs.length){ msg('Não há registros no filtro atual para exportar.',true); return; }
-  const L=[['Colaborador','Função','Setor','Data','Dia','Entrada prevista','Entrada real','Saída prevista','Saída real','Atraso chegada (min)','Saída antecipada (min)','Outros (min)','Abonado (min)','Total do cartão (min)','Total do cartão (h:mm)','Observação']];
-  rs.forEach(r=>{ const p=partes(r,tol);
+  const L=[['Colaborador','Função','Setor','Data','Dia','Entrada prevista','Entrada real','Saída prevista','Saída real','Atraso chegada (min)','Saída antecipada (min)','Outros (min)','Abonado (min)','Total do cartão (min)','Total do cartão (h:mm)','Hora extra (min)','Alerta hora extra (>'+LIMITE_HE+'min)','Observação']];
+  rs.forEach(r=>{ const p=partes(r,tol); const he=heDia(r,tol);
     L.push([r.nome,r.funcao,r.dep,r.data.slice(8,10)+'/'+r.data.slice(5,7)+'/'+r.data.slice(0,4),r.dia,
       hhmm(r.prevEnt),r.entTxt,hhmm(r.prevSai),r.saiTxt,p.che,p.sai,p.outros,p.abono,r.of,
-      Math.floor(r.of/60)+':'+String(r.of%60).padStart(2,'0'),r.obs||'']); });
+      Math.floor(r.of/60)+':'+String(r.of%60).padStart(2,'0'),he,he>LIMITE_HE?'SIM':'não',r.obs||'']); });
   const csv='\ufeff'+L.map(l=>l.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
