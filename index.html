@@ -188,6 +188,14 @@
   <div class="bar">
     <label for="fMes">Mês</label><select id="fMes"></select>
     <label for="fDep">Setor</label><select id="fDep"></select>
+    <label for="fFun">Função</label><select id="fFun"></select>
+    <label for="fTurno" title="Calculado pelo horário de entrada previsto na escala: manhã 05h–11h59, tarde 12h–17h59, noite 18h–04h59">Turno</label>
+    <select id="fTurno">
+      <option value="">Todos os turnos</option>
+      <option value="Manhã">Manhã</option>
+      <option value="Tarde">Tarde</option>
+      <option value="Noite">Noite</option>
+    </select>
     <label for="fTol">Tolerância</label>
     <select id="fTol">
       <option value="0">0 min</option>
@@ -324,6 +332,14 @@ function lerArquivo(wb, nomeArquivo){
         const cellEnt = marc[0]>=0 ? M[k][marc[0]] : null;
         const cellSai = (jSai>=0 && marc[jSai]>=0) ? M[k][marc[jSai]] : null;
         const entMinChk=minutos(cellEnt), saiMinChk=minutos(cellSai);
+        // marcação incompleta: a escala previa um horário nesse ponto (ex: volta do almoço) mas a célula está em branco — provável esquecimento de bater o ponto
+        let incompleto=false;
+        for(let j=0;j<6;j++){
+          if(E[j]===null||E[j]===undefined) continue;
+          if(marc[j]<0) continue;
+          const cel=M[k][marc[j]];
+          if(cel===null||cel===undefined||nz(cel)===''){ incompleto=true; break; }
+        }
         // mantém o dia se houve atraso OU se houve hora extra (entrou antes / saiu depois do previsto)
         const heChk=horaExtra(E[0],entMinChk,jSai>=0?E[jSai]:null,saiMinChk,0);
         if(of<=0 && heChk<=0) continue;
@@ -337,7 +353,7 @@ function lerArquivo(wb, nomeArquivo){
           prevEnt:E[0], prevSai:jSai>=0?E[jSai]:null,
           entTxt:batida(cellEnt), saiTxt:batida(cellSai),
           entMin:minutos(cellEnt), saiMin:minutos(cellSai),
-          of, obs, arq:nomeArquivo
+          of, obs, incompleto, arq:nomeArquivo
         });
       }
     });
@@ -370,8 +386,22 @@ function horaExtra(prevEnt,entMin,prevSai,saiMin,tol){
   }
   return he;
 }
-function heDia(r,tol){ return horaExtra(r.prevEnt,r.entMin,r.prevSai,r.saiMin,tol); }
+function ehMotorista(funcao){ return /motorista/i.test(nz(funcao)); }
+function heDia(r,tol){
+  // marcação incompleta (esqueceu de bater o ponto) não vira hora extra, exceto para motoristas
+  if(r.incompleto && !ehMotorista(r.funcao)) return 0;
+  return horaExtra(r.prevEnt,r.entMin,r.prevSai,r.saiMin,tol);
+}
 function sevHE(min){ return min<=60?1:min<=120?2:min<=LIMITE_HE?3:4; }
+
+/* -------- turno do dia (a partir da entrada prevista na escala) -------- */
+function turnoDia(min){
+  if(min===null||min===undefined) return null;
+  const h=Math.floor(min/60)%24;
+  if(h>=5&&h<12) return 'Manhã';
+  if(h>=12&&h<18) return 'Tarde';
+  return 'Noite';
+}
 
 /* -------- persistência -------- */
 async function carregar(){
@@ -418,11 +448,16 @@ function montarFiltros(){
   const ds=[...new Set(Object.values(DB.colaboradores).map(c=>c.dep).filter(Boolean))].sort();
   fd.innerHTML='<option value="">Todos os setores</option>'+ds.map(d=>'<option value="'+d+'">'+d+'</option>').join('');
   fd.value=ds.includes(b)?b:'';
+  const ff=document.getElementById('fFun'),e=ff.value;
+  const fs=[...new Set(Object.values(DB.colaboradores).map(c=>c.funcao).filter(Boolean))].sort();
+  ff.innerHTML='<option value="">Todas as funções</option>'+fs.map(fn=>'<option value="'+fn+'">'+fn+'</option>').join('');
+  ff.value=fs.includes(e)?e:'';
 }
 
 /* -------- render -------- */
 function render(){
   const mes=document.getElementById('fMes').value, dep=document.getElementById('fDep').value;
+  const fun=document.getElementById('fFun').value, turnoSel=document.getElementById('fTurno').value;
   const q=document.getElementById('fNome').value.trim().toLowerCase();
   const ord=document.getElementById('fOrd').value, tol=+document.getElementById('fTol').value;
   const cards=document.getElementById('cards');
@@ -435,10 +470,10 @@ function render(){
     document.getElementById('nota').textContent=''; return;
   }
 
-  const filtrados=regs().filter(r=>(!mes||r.data.slice(0,7)===mes)&&(!dep||r.dep===dep)&&(!q||r.nome.toLowerCase().includes(q)));
+  const filtrados=regs().filter(r=>(!mes||r.data.slice(0,7)===mes)&&(!dep||r.dep===dep)&&(!fun||r.funcao===fun)&&(!turnoSel||turnoDia(r.prevEnt)===turnoSel)&&(!q||r.nome.toLowerCase().includes(q)));
   const porColab={};
   Object.values(DB.colaboradores).forEach(c=>{
-    if(dep&&c.dep!==dep) return; if(q&&!c.nome.toLowerCase().includes(q)) return;
+    if(dep&&c.dep!==dep) return; if(fun&&c.funcao!==fun) return; if(q&&!c.nome.toLowerCase().includes(q)) return;
     porColab[c.nome]={...c,of:0,che:0,sai:0,outros:0,abono:0,pior:0,dias:[],heTotal:0,hePior:0,heDias:[]};
   });
   filtrados.forEach(r=>{
@@ -472,7 +507,7 @@ function render(){
   document.getElementById('nota').innerHTML=
     'O <b>total do cartão</b> é a coluna Atras. do arquivo — ela junta chegada tardia, saída antecipada e o resto. As três colunas ao lado são o mesmo total repartido, usando a escala de cada dia e a tolerância selecionada.'
     + (T.abono? ' Neste filtro há <b>'+fmt(T.abono)+'</b> de abono/atestado que o sistema já descontou do total oficial.':'')
-    + ' <b>Hora extra</b> é quando o colaborador bate entrada antes ou saída depois do previsto na escala; acima de <b>'+fmt(LIMITE_HE)+' num mesmo dia</b> vira alerta.';
+    + ' <b>Hora extra</b> é quando o colaborador bate entrada antes ou saída depois do previsto na escala; acima de <b>'+fmt(LIMITE_HE)+' num mesmo dia</b> vira alerta. Dias com alguma marcação em branco (ponto esquecido) não entram nesse cálculo, exceto para a função <b>Motorista</b>.';
 
   if(ABA==='alert'){
     document.getElementById('secTitle').textContent=mes?'Alertas de hora extra · '+nomeMes(mes):'Alertas de hora extra · acumulado geral';
@@ -486,7 +521,8 @@ function render(){
   const diasNoMes=mes?new Date(+mes.slice(0,4),+mes.slice(5,7),0).getDate():0;
 
   if(ABA==='alert'){
-    const pdfbar=alertas.length?'<div class="pdfbar"><p><b>'+alertas.length+' colaborador(es)</b> ultrapassaram '+fmt(LIMITE_HE)+' de hora extra em pelo menos um dia neste período. Gere um relatório formatado para levar ao setor responsável.</p><button class="btn he" id="pdfBtn">🖨 Gerar PDF</button></div>':'';
+    const filtroTxt=[dep,fun,turnoSel].filter(Boolean).join(' · ');
+    const pdfbar=alertas.length?'<div class="pdfbar"><p><b>'+alertas.length+' colaborador(es)</b> ultrapassaram '+fmt(LIMITE_HE)+' de hora extra em pelo menos um dia neste período'+(filtroTxt?' · filtro atual: <b>'+filtroTxt+'</b>':'')+'. Gere um relatório formatado para levar ao setor responsável.</p><button class="btn he" id="pdfBtn">🖨 Gerar PDF'+(filtroTxt?' ('+filtroTxt+')':'')+'</button></div>':'';
     cards.innerHTML = pdfbar + (alertas.length ? alertas.sort((a,b)=>(b.heDias.length-a.heDias.length)||(b.heTotal-a.heTotal)).map(c=>{
       const linhasHE=c.dias.filter(r=>r._he>0).sort((a,b)=>a.data.localeCompare(b.data)).map(r=>{
         const esc=(r.prevEnt!==null&&r.prevEnt!==undefined)?hhmm(r.prevEnt)+'–'+hhmm(r.prevSai):'—';
@@ -510,7 +546,7 @@ function render(){
     }).join('') : '<div class="empty"><b>Nenhum alerta neste período</b><p>Ninguém ultrapassou '+fmt(LIMITE_HE)+' de hora extra em um mesmo dia, considerando a tolerância selecionada.</p></div>');
 
     cards.querySelectorAll('.row').forEach(el=>el.classList.add('open'));
-    document.getElementById('pdfBtn')?.addEventListener('click',()=>gerarPDF(mes,dep,tol,alertas));
+    document.getElementById('pdfBtn')?.addEventListener('click',()=>gerarPDF(mes,dep,fun,turnoSel,tol,alertas));
     document.getElementById('files').innerHTML='';
     return;
   }
@@ -536,10 +572,12 @@ function render(){
     const linhas=c.dias.sort((a,b)=>a.data.localeCompare(b.data)).map(r=>{
       const p=r._p||partes(r,tol);
       const he=r._he||0, overHE=he>LIMITE_HE;
+      const heBruta=horaExtra(r.prevEnt,r.entMin,r.prevSai,r.saiMin,tol);
       const esc=(r.prevEnt!==null&&r.prevEnt!==undefined)?hhmm(r.prevEnt)+'–'+hhmm(r.prevSai):'—';
       const obs=[]; if(r.obs) obs.push('<span class="chip">'+r.obs+'</span>');
       if(p.abono) obs.push('<span class="chip">abonado −'+fmt(p.abono)+'</span>');
       if(overHE) obs.push('<span class="chip" style="color:var(--he);border-color:var(--he);background:var(--he-bg)">hora extra ⚠</span>');
+      if(r.incompleto&&!ehMotorista(r.funcao)&&heBruta>0) obs.push('<span class="chip" title="Ponto sem alguma marcação prevista na escala (ex.: volta do almoço) — hora extra não contabilizada">ponto incompleto</span>');
       const cel=(v)=> v? '<td class="n mono" style="color:var(--s'+sev(v)+')">'+fmt(v)+'</td>' : '<td class="n mono zero">—</td>';
       const celHE=he? '<td class="n mono" style="color:var(--he);font-weight:'+(overHE?'700':'400')+'">'+fmt(he)+'</td>' : '<td class="n mono zero">—</td>';
       return '<tr><td class="mono">'+r.data.slice(8,10)+'/'+r.data.slice(5,7)+' <span class="prev">'+r.dia+'</span></td>'+
@@ -579,7 +617,7 @@ function juntarNomes(arr){
   if(arr.length<=1) return arr[0]||'';
   return arr.slice(0,-1).join(', ')+' e '+arr[arr.length-1];
 }
-function gerarPDF(mes,dep,tol,alertas){
+function gerarPDF(mes,dep,fun,turnoSel,tol,alertas){
   if(!alertas.length) return;
   const totalDias=alertas.reduce((s,c)=>s+c.heDias.length,0);
   const totalHE=alertas.reduce((s,c)=>s+c.heDias.reduce((s2,r)=>s2+r._he,0),0);
@@ -590,6 +628,7 @@ function gerarPDF(mes,dep,tol,alertas){
     const p=c.heDias.reduce((mm,r)=>r._he>mm._he?r:mm,c.heDias[0]);
     return (!m||p._he>m.he)?{nome:c.nome,he:p._he,data:p.data}:m;
   },null);
+  const filtroSub=[dep,fun,turnoSel].filter(Boolean).join(' · ');
 
   const linhas=alertas.map(c=>{
     const pior=c.heDias.reduce((m,r)=>r._he>m._he?r:m,c.heDias[0]);
@@ -606,10 +645,11 @@ function gerarPDF(mes,dep,tol,alertas){
       '<div class="rpt-head">'+
         '<div class="rpt-eyebrow">Confidencial · uso interno</div>'+
         '<h1>Relatório de Horas Extras</h1>'+
-        '<div class="rpt-sub">Alertas acima de '+fmt(LIMITE_HE)+' por dia</div>'+
+        '<div class="rpt-sub">Alertas acima de '+fmt(LIMITE_HE)+' por dia'+(filtroSub?' · '+filtroSub:'')+'</div>'+
       '</div>'+
       '<table class="rpt-meta">'+
         '<tr><td class="k">Período</td><td class="v">'+(mes?nomeMes(mes):'Acumulado geral')+'</td><td class="k">Setor</td><td class="v">'+(dep||'Todos os setores')+'</td></tr>'+
+        '<tr><td class="k">Função</td><td class="v">'+(fun||'Todas as funções')+'</td><td class="k">Turno</td><td class="v">'+(turnoSel||'Todos os turnos')+'</td></tr>'+
         '<tr><td class="k">Tolerância aplicada</td><td class="v">'+tol+' min</td><td class="k">Gerado em</td><td class="v">'+new Date().toLocaleString('pt-BR')+'</td></tr>'+
       '</table>'+
       '<div class="rpt-summary">'+
@@ -626,7 +666,7 @@ function gerarPDF(mes,dep,tol,alertas){
         '<thead><tr><th>Colaborador</th><th>Função</th><th>Setor</th><th class="n">Dias &gt;'+fmt(LIMITE_HE)+'</th><th>Pior dia</th><th class="n">Total no período</th></tr></thead>'+
         '<tbody>'+linhas+'</tbody>'+
       '</table>'+
-      '<p class="rpt-note">Metodologia: hora extra é contada quando a entrada ocorre antes do horário previsto na escala e/ou a saída ocorre depois do previsto, com tolerância de '+tol+' min (a mesma configurada no painel). É considerado alerta quando a soma do dia ultrapassa '+fmt(LIMITE_HE)+'. A coluna "Total no período" soma apenas os dias que geraram alerta.</p>'+
+      '<p class="rpt-note">Metodologia: hora extra é contada quando a entrada ocorre antes do horário previsto na escala e/ou a saída ocorre depois do previsto, com tolerância de '+tol+' min (a mesma configurada no painel). É considerado alerta quando a soma do dia ultrapassa '+fmt(LIMITE_HE)+'. Dias com alguma marcação em branco (ponto esquecido, ex.: volta do almoço) não entram no cálculo de hora extra, exceto para a função Motorista. A coluna "Total no período" soma apenas os dias que geraram alerta.</p>'+
       '<div class="rpt-sign">'+
         '<div><span></span><label>Recursos Humanos</label></div>'+
         '<div><span></span><label>Diretoria</label></div>'+
@@ -646,7 +686,7 @@ drop.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventD
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
 drop.addEventListener('drop',e=>{ if(e.dataTransfer.files.length) processar([...e.dataTransfer.files]); });
 document.getElementById('file').addEventListener('change',e=>{ processar([...e.target.files]); e.target.value=''; });
-['fMes','fDep','fOrd','fTol'].forEach(i=>document.getElementById(i).addEventListener('change',render));
+['fMes','fDep','fFun','fTurno','fOrd','fTol'].forEach(i=>document.getElementById(i).addEventListener('change',render));
 document.getElementById('fNome').addEventListener('input',render);
 
 document.getElementById('tabs').addEventListener('click',e=>{
@@ -658,14 +698,15 @@ document.getElementById('tabs').addEventListener('click',e=>{
 
 document.getElementById('csv').addEventListener('click',()=>{
   const mes=document.getElementById('fMes').value, dep=document.getElementById('fDep').value, tol=+document.getElementById('fTol').value;
-  const rs=regs().filter(r=>(!mes||r.data.slice(0,7)===mes)&&(!dep||r.dep===dep))
+  const fun=document.getElementById('fFun').value, turnoSel=document.getElementById('fTurno').value;
+  const rs=regs().filter(r=>(!mes||r.data.slice(0,7)===mes)&&(!dep||r.dep===dep)&&(!fun||r.funcao===fun)&&(!turnoSel||turnoDia(r.prevEnt)===turnoSel))
     .sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')||a.data.localeCompare(b.data));
   if(!rs.length){ msg('Não há registros no filtro atual para exportar.',true); return; }
-  const L=[['Colaborador','Função','Setor','Data','Dia','Entrada prevista','Entrada real','Saída prevista','Saída real','Atraso chegada (min)','Saída antecipada (min)','Outros (min)','Abonado (min)','Total do cartão (min)','Total do cartão (h:mm)','Hora extra (min)','Alerta hora extra (>'+LIMITE_HE+'min)','Observação']];
+  const L=[['Colaborador','Função','Setor','Turno','Data','Dia','Entrada prevista','Entrada real','Saída prevista','Saída real','Atraso chegada (min)','Saída antecipada (min)','Outros (min)','Abonado (min)','Total do cartão (min)','Total do cartão (h:mm)','Ponto incompleto','Hora extra (min)','Alerta hora extra (>'+LIMITE_HE+'min)','Observação']];
   rs.forEach(r=>{ const p=partes(r,tol); const he=heDia(r,tol);
-    L.push([r.nome,r.funcao,r.dep,r.data.slice(8,10)+'/'+r.data.slice(5,7)+'/'+r.data.slice(0,4),r.dia,
+    L.push([r.nome,r.funcao,r.dep,turnoDia(r.prevEnt)||'—',r.data.slice(8,10)+'/'+r.data.slice(5,7)+'/'+r.data.slice(0,4),r.dia,
       hhmm(r.prevEnt),r.entTxt,hhmm(r.prevSai),r.saiTxt,p.che,p.sai,p.outros,p.abono,r.of,
-      Math.floor(r.of/60)+':'+String(r.of%60).padStart(2,'0'),he,he>LIMITE_HE?'SIM':'não',r.obs||'']); });
+      Math.floor(r.of/60)+':'+String(r.of%60).padStart(2,'0'),r.incompleto?'SIM':'não',he,he>LIMITE_HE?'SIM':'não',r.obs||'']); });
   const csv='\ufeff'+L.map(l=>l.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
